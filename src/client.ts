@@ -20,8 +20,6 @@ let rl = readline.createInterface({
 let  ws = new WebSocket("ws://localhost:9090"); 
 connect();
 
-
-
 ws.onmessage = message => {
     const response = JSON.parse(message.data.toString());
     //connect
@@ -81,7 +79,6 @@ ws.onmessage = message => {
     }
 
     if(response.Method === "makeMove"){
-        console.log(response);
         if(!response.Valid){
             console.log("Not a valid move...");
             console.log("Make a move again.");
@@ -100,10 +97,40 @@ ws.onmessage = message => {
         gameState = response.GameState;
         currentPlayer = response.GameState.currentMove;
         makeMove();
-        }
-        
+        }       
     }
 
+    if(response.Method === "requestAllGames" ){
+        availableGames = response.GameIds;
+        if(availableGames.length == 0 || !availableGames){
+            console.log("No ongoing games available!!! \n");
+            console.log("Please create your own game or wait for someone to create one\n");
+            enterChoice();
+        }
+        console.log("Available Game Ids are :");
+        availableGames.forEach(gameId => {
+            console.log(gameId);
+        });
+        rl.question("Enter game Id you want to join as spectator : \n",(id)=>{
+            joinAsSpectator(id);
+        })
+    }
+
+    if(response.Method === "joinAsSpectator"){
+        playerNumber = response.PlayerPosition;
+        gameState = response.GameState;
+        console.log("Joined game as spectator...");
+        renderState(gameState.State);
+    }
+
+}
+
+function endGame(gameId:string){
+    const payload = {
+        Method:"endGame",
+        GameId : gameId
+    }
+    ws.send(JSON.stringify(payload));
 }
 
 function connect(){
@@ -136,6 +163,23 @@ function getAvailablegames(){
 function joinAsPlayer(gameId:String){
     const payload = {
         Method : "joinAsPlayer",
+        ClientId : clientId,
+        GameId : gameId
+    }
+    ws.send(JSON.stringify(payload));
+}
+
+function getAllGames(){
+    const payload = {
+        Method : "requestAllGames",
+        ClientId : clientId
+    }
+    ws.send(JSON.stringify(payload));
+}
+
+function joinAsSpectator(gameId:string){
+    const payload = {
+        Method : "joinAsSpectator",
         ClientId : clientId,
         GameId : gameId
     }
@@ -178,7 +222,7 @@ function enterChoice(){
             getAvailablegames();
         }
         else if(choice === "3"){
-
+            getAllGames();
         }
         else{
             console.log("Wrong choice");
@@ -186,7 +230,6 @@ function enterChoice(){
         }
     });
 }
-
 
 function createEmptyGrid(){
     console.log("Current State");

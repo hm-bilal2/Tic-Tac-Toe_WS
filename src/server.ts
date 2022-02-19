@@ -192,6 +192,36 @@ wsServer.on("request",request => {
                 });
             }
         }
+
+        if(result.Method == "requestAllGames"){
+            let allGames:String[] = [];
+            gameMap.forEach(game => {
+                allGames.push(game.gameId)
+            });
+            const payload ={
+                Method : "requestAllGames",
+                ClientId : ClientId,
+                GameIds: allGames
+            }
+            clientMap.get(ClientId)!.send(JSON.stringify(payload));
+        }
+
+        if(result.Method == "joinAsSpectator"){
+            const selectedGameId = result.GameId;
+            let gameState:IGamesState = gameMap.get(selectedGameId)!;
+
+            gameState.spectatorIds.push(ClientId);
+                gameMap.set(selectedGameId,gameState);
+
+                const payload = {
+                    Method : "joinAsSpectator",
+                    Client : ClientId,
+                    GameState : gameState,
+                    PlayerPosition : 3
+                }
+
+                clientMap.get(ClientId)!.send(JSON.stringify(payload));
+            }
     });
 });
 
