@@ -9,19 +9,19 @@ const port:Number = 9090;
 
 httpServer.listen(port,()=>console.log("Listening on 9090..."));
 
-interface IGamesState{
+export interface IGamesState{
     gameId:String,
     playerIds:string[],
     spectatorIds:string[],
     State:Number[][],
-    currentPosition:Number
+    currentMove:Number
 }
 
 let gameMap = new Map<String,IGamesState>(); //gameUUID-->gameState
 
 let clientMap = new Map<String,websocket.connection>();
 
-const winState:Number[][] = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [2, 4, 6], [0, 4, 8]];
+const winState:number[][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 4, 7], [2, 5, 8], [3, 6, 9], [1, 5, 9], [3, 5, 7]];
 
 const wsServer = new websocketServer({
     "httpServer":httpServer
@@ -37,7 +37,7 @@ wsServer.on("request",request => {
 
         console.log(result);
 
-        if(result.Method == "connect"){
+        if(result.Method === "connect"){
             const addrssInfo = JSON.parse(JSON.stringify(httpServer.address()));
             const serverName = addrssInfo.address+addrssInfo.port;
             const clientId:string = generateClientId(serverName,result.Name);
@@ -49,7 +49,7 @@ wsServer.on("request",request => {
             clientMap.get(clientId)!.send(JSON.stringify(payload));
         }
 
-        if(result.Method == "create"){
+        if(result.Method === "create"){
             const state:Number[][]=[[-1,-1,-1],[-1,-1,-1],[-1,-1,-1]];
             const gameId:String = generateGameUUID();
            
@@ -58,7 +58,7 @@ wsServer.on("request",request => {
                 playerIds:[ClientId],
                 spectatorIds:[],
                 State:state,
-                currentPosition:1
+                currentMove: 1
             }
             
             gameMap.set(gameId,gamesState);
@@ -74,19 +74,24 @@ wsServer.on("request",request => {
             clientMap.get(ClientId)!.send(JSON.stringify(payload));
         }
 
-        if(result.Method == "requestAvailableGames"){
+        if(result.Method === "requestAvailableGames"){
+           
             let availableGames:String[] = [];
             gameMap.forEach(game => {
                 if(game.playerIds.length == 1){
                     availableGames.push(game.gameId)
                 }
             });
-
-            connection.send(availableGames);
+            const payload = {
+                Method : "requestAvailableGames",
+                ClientId : ClientId,
+                GameIds : availableGames
+            }
+            clientMap.get(ClientId)!.send(JSON.stringify(payload));
         }
 
-        if(result.Method == "joinAsPlayer"){
-            const selectedGameId = result.selectedId;
+        if(result.Method === "joinAsPlayer"){
+            const selectedGameId = result.GameId;
             let gameState:IGamesState = gameMap.get(selectedGameId)!;
 
             if(gameState.playerIds.length>1){
@@ -103,27 +108,47 @@ wsServer.on("request",request => {
                     Method : "joinAsPlayer",
                     Client : ClientId,
                     Message : "Slots",
-                    GeameState : gameState,
-
+                    GameState : gameState,
+                    PlayerPosition : 2
                 }
+
                 clientMap.get(ClientId)!.send(JSON.stringify(payload));
             }
         }
 
-        if(result.Method == "makeMove"){
+        if(result.Method === "startGame"){
+            const selectedGameId = result.GameId;
+            let gameState:IGamesState = gameMap.get(selectedGameId)!;
+
+            const payload = {
+                Method : "startGame",
+                GameState : gameState
+            }
+
+            gameState.playerIds.forEach(c=> {
+                clientMap.get(c)!.send(JSON.stringify(payload))
+            });
+            gameState.spectatorIds.forEach(s=>{
+                clientMap.get(s)!.send(JSON.stringify(payload))
+            });
+        }
+
+        if(result.Method === "makeMove"){
             const gameId = result.GameId;
-            const position = result.position;
+            const position = result.Position;
             const gameState = gameMap.get(gameId)!;
 
             if(!checkValidPosition(position,gameState?.State)){
                 const payload = {
+                    Method : "makeMove",
                     GameId:gameId,
                     ClientId:ClientId,
-                    State:gameState,
+                    GameState:gameState,
                     Valid:false
                 }
 
                 gameState.playerIds.forEach(c=> {
+                    console.log(c);
                     clientMap.get(c)!.send(JSON.stringify(payload))
                 });
                 gameState.spectatorIds.forEach(s=>{
@@ -131,10 +156,13 @@ wsServer.on("request",request => {
                 });
             }
             else{
-                let newState = gameState.State;
+                let newState = gameState.State; 
+                //console.log(newState);
                 const coordinates = givePositionOnGrid(position);
-                const playerNumber = gameState.playerIds[0] == ClientId ? 0 : 1;
-                newState[coordinates[0]][coordinates[1]] = gameState.playerIds[0] == ClientId ? 0 : 1;
+                const playerNumber = gameState.playerIds[0] == ClientId ? 1 : 2;
+                newState[coordinates.first][coordinates.second] = gameState.playerIds[0] == ClientId ? 1 : 2;
+                gameState.State = newState;
+                gameState.currentMove = playerNumber == 1?2:1;
 
                 const isWin = checkWinState(playerNumber,newState);
                 let isDraw = false; 
@@ -144,76 +172,124 @@ wsServer.on("request",request => {
                 }
                     
                 const payload = {
+                    Method : "makeMove",
                     GameId:gameId,
                     ClientId:ClientId,
-                    State:newState,
+                    GameState:gameState,
                     Valid:true,
                     Win:{
                         Value:isWin,
                         PlayerNumber:playerNumber
                     },
-                    Draw:isDraw,
+                    Draw:isDraw
                 }
 
                 gameState.playerIds.forEach(p=> {
                     clientMap.get(p)!.send(JSON.stringify(payload))
                 })
+                gameState.spectatorIds.forEach(s=>{
+                    clientMap.get(s)!.send(JSON.stringify(payload))
+                });
             }
         }
     });
 });
 
 function givePositionOnGrid(position:number){
-    let pos = [-1,-1];
+    let pos;
     switch (position) {
         case 1:
-            pos = [0,0];
+            pos = {
+                first:0,
+                second:0
+            };
+            break;
         case 2:
-            pos = [0,1];
+            pos = {
+                first:0,
+                second:1
+            };
+            break;
         case 3:
-            pos = [0,2];
+            pos = {
+                first:0,
+                second:2
+            };
+            break;
         case 4:
-            pos = [1,0];
+            pos = {
+                first:1,
+                second:0
+            };
+            break;
         case 5:
-            pos = [1,1];
+            pos = {
+                first:1,
+                second:1
+            };
+            break;
         case 6:
-            pos = [1,2];
+            pos = {
+                first:1,
+                second:2
+            };
+            break;
         case 7:
-            pos = [2,0];
+            pos = {
+                first:2,
+                second:0
+            };
+            break;
         case 8:
-            pos = [2,1];
+            pos = {
+                first:2,
+                second:1
+            };
+            break;
         case 9:
-            pos = [2,2];
+            pos = {
+                first:2,
+                second:2
+            };
+            break;
+        default:
+            pos = {
+                first:-1,
+                second:-1
+            };
     }
     return pos;
 }
 
 function checkValidPosition(position:number,gameState:Number[][]){
-    const pos:number[] = givePositionOnGrid(position);
-    const firstIndex:number = pos[0];
-    const secondIndex:number  = pos[1];
-    if(position < 0 || position > 10 || gameState[firstIndex][secondIndex]){
+
+    if(position < 0 || position > 9){
+        return false;
+    }
+    const pos = givePositionOnGrid(position);
+    if(gameState[pos.first][pos.second]!=-1){
         return false;
     }
     return true;
 }
 
 function checkDraw(player:Number,gameState:Number[][]){
-    for(let i = 0 ;i<winState.length;i++){
-        for (let j=0 ; j<winState[i].length;j++) {
+    for(let i = 0 ;i<gameState.length;i++){
+        for (let j=0 ; j<gameState[i].length;j++) {
             if (gameState[i][j] != -1) {
-                return false;
+                return true;
             }
         }
     }
-    return false;
+    return true;
 }
 
 function checkWinState(player:Number,gameState:Number[][]){
     for(let i = 0 ;i<winState.length;i++){
         let flag = 1;
         for (let j=0 ; j<winState[i].length;j++) {
-            if (gameState[i][j] != player) {
+            const pos = givePositionOnGrid(winState[i][j]);
+            if (gameState[pos.first][pos.second] != player) {
                 flag = 0;
                 break;
             }
@@ -228,15 +304,15 @@ function generateClientId(httpServer:string,name:string){
     return httpServer+name;
 }
 
-function generateGameUUID() { // Public Domain/MIT
-    var d = new Date().getTime();//Timestamp
-    var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
+function generateGameUUID() { 
+    var d = new Date().getTime();
+    var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16;//random number between 0 and 16
-        if(d > 0){//Use timestamp until depleted
+        var r = Math.random() * 16;
+        if(d > 0){
             r = (d + r)%16 | 0;
             d = Math.floor(d/16);
-        } else {//Use microseconds since page-load if supported
+        } else {
             r = (d2 + r)%16 | 0;
             d2 = Math.floor(d2/16);
         }
