@@ -20,9 +20,17 @@ let rl = readline.createInterface({
 let  ws = new WebSocket("ws://localhost:9090"); 
 connect();
 
+ws.close = event=>{
+    console.log("Server has closed the connection");
+}
+
 ws.onmessage = message => {
     const response = JSON.parse(message.data.toString());
     //connect
+    if(response.Method == "idExists"){
+        console.log("Id already Exists!!!");
+        ws.close(); 
+    }
 
    if(response.Method == "connect"){
         clientId = response.ClientId;
@@ -85,18 +93,23 @@ ws.onmessage = message => {
             renderState(response.GameState.State);
             makeMove();
         }else{
-        renderState(response.GameState.State);
-        if(response.Win.Value){
-            console.log(`Congratulations!!! Player-${response.Win.PlayerNumber} has won...`);
-           // endGame();
-        }
-        if(response.Draw){
-            console.log("Its a draw...");
-          //  endGame();
-        }
-        gameState = response.GameState;
-        currentPlayer = response.GameState.currentMove;
-        makeMove();
+            renderState(response.GameState.State);
+            if(response.Win.Value){
+                console.log(`Congratulations!!! Player-${response.Win.PlayerNumber} has won...`);
+                if(playerNumber == currentPlayer){
+                    endGame(gameId);
+                }
+            }
+            else if(response.Draw){
+                console.log("Its a draw...");
+                if(playerNumber == currentPlayer){
+                    endGame(gameId);
+                }
+            }else{
+                gameState = response.GameState;
+                currentPlayer = response.GameState.currentMove;
+                makeMove();
+            }
         }       
     }
 
@@ -123,9 +136,13 @@ ws.onmessage = message => {
         renderState(gameState.State);
     }
 
+    if(response.Method == "gameOverload"){
+        console.log("Too many games!!!");
+        ws.close();
+    }
 }
 
-function endGame(gameId:string){
+function endGame(gameId:String){
     const payload = {
         Method:"endGame",
         GameId : gameId

@@ -1,4 +1,5 @@
 import * as http from "http";
+import { Stream } from "stream";
 import * as websocket from "websocket";
 import { WebSocketServer } from "ws";
 
@@ -31,25 +32,48 @@ wsServer.on("request",request => {
     //connect
     const connection = request.accept(null, request.origin);
 
-    connection.on("message",message =>{
+    connection.on("close",(mssg)=>{
+        console.log("Someone has closed connection");
+    })
+
+    connection.on("message",async message =>{
         const result = JSON.parse(message.utf8Data);
         const ClientId = result.ClientId;
 
         console.log(result);
 
-        if(result.Method === "connect"){
+        if(result.Method == "connect"){
             const addrssInfo = JSON.parse(JSON.stringify(httpServer.address()));
             const serverName = addrssInfo.address+addrssInfo.port;
             const clientId:string = generateClientId(serverName,result.Name);
-            const payload = {
-                ClientId : clientId,
-                Method : "connect"
+            if(clientMap.get(clientId)){
+                const payload = {
+                    ClientId : clientId,
+                    Method : "idExists"
+                }
+                connection.send(JSON.stringify(payload));
+            }else{
+                const payload = {
+                    ClientId : clientId,
+                    Method : "connect"
+                }
+                clientMap.set(clientId,connection);
+                clientMap.get(clientId)!.send(JSON.stringify(payload));
             }
-            clientMap.set(clientId,connection);
-            clientMap.get(clientId)!.send(JSON.stringify(payload));
         }
 
-        if(result.Method === "create"){
+        if(result.Method == "create"){
+            if(gameMap.size == 2){
+                const tempConnection = clientMap.get(ClientId);
+                clientMap.delete(ClientId);
+                const payload = {
+                    Method : "gameOverload",
+                    ClientId : ClientId,
+                }
+    
+                tempConnection!.send(JSON.stringify(payload));
+
+            }else{
             const state:Number[][]=[[-1,-1,-1],[-1,-1,-1],[-1,-1,-1]];
             const gameId:String = generateGameUUID();
            
@@ -72,9 +96,10 @@ wsServer.on("request",request => {
             }
 
             clientMap.get(ClientId)!.send(JSON.stringify(payload));
+            }
         }
 
-        if(result.Method === "requestAvailableGames"){
+        if(result.Method == "requestAvailableGames"){
            
             let availableGames:String[] = [];
             gameMap.forEach(game => {
@@ -90,7 +115,7 @@ wsServer.on("request",request => {
             clientMap.get(ClientId)!.send(JSON.stringify(payload));
         }
 
-        if(result.Method === "joinAsPlayer"){
+        if(result.Method == "joinAsPlayer"){
             const selectedGameId = result.GameId;
             let gameState:IGamesState = gameMap.get(selectedGameId)!;
 
@@ -116,7 +141,7 @@ wsServer.on("request",request => {
             }
         }
 
-        if(result.Method === "startGame"){
+        if(result.Method == "startGame"){
             const selectedGameId = result.GameId;
             let gameState:IGamesState = gameMap.get(selectedGameId)!;
 
@@ -133,7 +158,7 @@ wsServer.on("request",request => {
             });
         }
 
-        if(result.Method === "makeMove"){
+        if(result.Method == "makeMove"){
             const gameId = result.GameId;
             const position = result.Position;
             const gameState = gameMap.get(gameId)!;
@@ -222,6 +247,19 @@ wsServer.on("request",request => {
 
                 clientMap.get(ClientId)!.send(JSON.stringify(payload));
             }
+
+        if(result.Method == "endGame"){
+            const currentGame = gameMap.get(result.GameId);
+            const clientIds = currentGame!.playerIds.concat(currentGame!.spectatorIds);
+            console.log(clientIds);
+
+             clientIds.forEach(clientId => {
+                clientMap.get(clientId)?.close();
+                clientMap.delete(clientId);
+            });
+
+            gameMap.delete(result.GameId);
+        }
     });
 });
 
@@ -292,11 +330,12 @@ function givePositionOnGrid(position:number){
 }
 
 function checkValidPosition(position:number,gameState:Number[][]){
-
+    console.log(position,gameState);
     if(position < 0 || position > 9){
         return false;
     }
     const pos = givePositionOnGrid(position);
+    console.log(pos);
     if(gameState[pos.first][pos.second]!=-1){
         return false;
     }
@@ -306,8 +345,8 @@ function checkValidPosition(position:number,gameState:Number[][]){
 function checkDraw(player:Number,gameState:Number[][]){
     for(let i = 0 ;i<gameState.length;i++){
         for (let j=0 ; j<gameState[i].length;j++) {
-            if (gameState[i][j] != -1) {
-                return true;
+            if (gameState[i][j] == -1) {
+                return false;
             }
         }
     }
