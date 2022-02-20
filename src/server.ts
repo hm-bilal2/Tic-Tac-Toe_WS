@@ -46,6 +46,7 @@ wsServer.on("request",request => {
             const addrssInfo = JSON.parse(JSON.stringify(httpServer.address()));
             const serverName = addrssInfo.address+addrssInfo.port;
             const clientId:string = generateClientId(serverName,result.Name);
+
             if(clientMap.get(clientId)){
                 const payload = {
                     ClientId : clientId,
@@ -63,7 +64,7 @@ wsServer.on("request",request => {
         }
 
         if(result.Method == "create"){
-            if(gameMap.size == 2){
+            if(gameMap.size == 10){
                 const tempConnection = clientMap.get(ClientId);
                 clientMap.delete(ClientId);
                 const payload = {

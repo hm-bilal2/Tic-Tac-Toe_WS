@@ -34,7 +34,7 @@ ws.onmessage = message => {
 
    if(response.Method == "connect"){
         clientId = response.ClientId;
-        console.log(`Connected successfully, your Client Id is \n ${clientId}`);
+        console.log(`Connected successfully, your Client Id is \n ${clientId}\n`);
         enterChoice();     
     }
 
@@ -43,37 +43,38 @@ ws.onmessage = message => {
         playerNumber = response.PlayerPosition;
         gameState = response.gamesState;
 
-        console.log("Game created successfully...");
-        console.log(`Game Id : ${gameId}`);
-        console.log("You are Player1 \n Waiting for Player2...")
+        console.log("\nGame created successfully...");
+        console.log(`\nGame Id : ${gameId}`);
+        console.log("\nYou are Player1 \n Waiting for Player2...")
     }
 
     if(response.Method === "requestAvailableGames" ){
         availableGames = response.GameIds;
         if(availableGames.length == 0 || !availableGames){
-            console.log("No ongoing games available!!! \n");
-            console.log("Please create your own game or wait for someone to create one\n");
+            console.log("\nNo ongoing games available!!! \n");
+            console.log("\nPlease create your own game or wait for someone to create one\n");
             enterChoice();
         }
-        console.log("Available Game Ids are :");
+        console.log("Available Game Ids are :\n--------------------------\n");
         availableGames.forEach(gameId => {
-            console.log(gameId);
+            console.log(gameId,"\n");
         });
-        rl.question("Enter game Id you want to join : \n",(id)=>{
+        rl.question("\n\nEnter game Id you want to join : \n-------------------------------\n",(id)=>{
             joinAsPlayer(id);
         })
     }
 
     if(response.Method === "joinAsPlayer" ){
         if(response.Message == "NoSlots"){
-            console.log("Sorry the gameId you have entered is either incorrect or there are no slots available...");
-            console.log("Please select another option...");
+            console.log("\nSorry the gameId you have entered is either incorrect or there are no slots available...\n");
+            console.log("Please select another option...\n");
             enterChoice();
-        }
-        gameId = response.GameState.gameId;
-        playerNumber = response.PlayerPosition
-        console.log("You are Player-2");
-        startGame();       
+        }else{
+            gameId = response.GameState.gameId;
+            playerNumber = response.PlayerPosition
+            console.log("You are Player-2");
+            startGame(); 
+        }      
     }
 
     if(response.Method === "startGame" ){
@@ -88,20 +89,20 @@ ws.onmessage = message => {
 
     if(response.Method === "makeMove"){
         if(!response.Valid){
-            console.log("Not a valid move...");
+            console.log("\nNot a valid move...");
             console.log("Make a move again.");
             renderState(response.GameState.State);
             makeMove();
         }else{
             renderState(response.GameState.State);
             if(response.Win.Value){
-                console.log(`Congratulations!!! Player-${response.Win.PlayerNumber} has won...`);
+                console.log(`PLAYER-${response.Win.PlayerNumber} HAS WON!!!\n\n\n`);
                 if(playerNumber == currentPlayer){
                     endGame(gameId);
                 }
             }
             else if(response.Draw){
-                console.log("Its a draw...");
+                console.log("ITS A DRAW!!!\n\n\n");
                 if(playerNumber == currentPlayer){
                     endGame(gameId);
                 }
@@ -116,11 +117,11 @@ ws.onmessage = message => {
     if(response.Method === "requestAllGames" ){
         availableGames = response.GameIds;
         if(availableGames.length == 0 || !availableGames){
-            console.log("No ongoing games available!!! \n");
+            console.log("NO ONGOING GAME AVAILABLE!!! \n");
             console.log("Please create your own game or wait for someone to create one\n");
             enterChoice();
         }
-        console.log("Available Game Ids are :");
+        console.log("Available Game Ids are :\n-------------------------\n");
         availableGames.forEach(gameId => {
             console.log(gameId);
         });
@@ -132,12 +133,12 @@ ws.onmessage = message => {
     if(response.Method === "joinAsSpectator"){
         playerNumber = response.PlayerPosition;
         gameState = response.GameState;
-        console.log("Joined game as spectator...");
+        console.log("\nJoined game as spectator...");
         renderState(gameState.State);
     }
 
     if(response.Method == "gameOverload"){
-        console.log("Too many games!!!");
+        console.log("\nToo many games!!!");
         ws.close();
     }
 }
@@ -157,7 +158,7 @@ function connect(){
             Method:"connect"
         }
         ws.send(JSON.stringify(payload))
-        console.log("Sent a payload...")
+        console.log("Initiated Connection. Please wait...")
     });   
 }
 
@@ -214,7 +215,7 @@ function startGame(){
 
 function makeMove(){
     if(playerNumber === currentPlayer){
-        rl.question("Please select an empty slot : ",(pos)=>{
+        rl.question("\nPlease select an empty slot : ",(pos)=>{
             
             const payload = {
                 Method : "makeMove",
@@ -225,13 +226,13 @@ function makeMove(){
             ws.send(JSON.stringify(payload));
         });
     }else{
-        console.log(`Wait untill Player-${currentPlayer} makes a move\n`);
+        console.log(`\nWait untill Player-${currentPlayer} makes a move\n`);
     }
 }
 
 function enterChoice(){
     console.log("\nEnter From any of the below choices : \n1. Create new game\n2. Join existing game\n3. Spectate ")
-    rl.question("Enter your choice as 1,2,3 : ",(choice)=>{
+    rl.question("Enter your choice as 1,2,3 : \n",(choice)=>{
         if(choice === "1"){
             create();
         }
@@ -242,14 +243,14 @@ function enterChoice(){
             getAllGames();
         }
         else{
-            console.log("Wrong choice");
+            console.log("Invalid choice");
             enterChoice();
         }
     });
 }
 
 function createEmptyGrid(){
-    console.log("Current State");
+    console.log("Initial State");
     console.log(" | | \n | | \n | | ");
 }
 
@@ -267,12 +268,13 @@ function renderState(state:Number[][]){
         }
         console.log("");
         if(i!=2){
-            console.log("-------------------");
+            console.log("---------");
         }
     }
+    console.log();
 }
 
 function drawReferences(){
     console.log("Reference States");
-    console.log("1|2|3\n4|5|6\n7|8|9");
+    console.log("1|2|3\n4|5|6\n7|8|9\n");
 }
