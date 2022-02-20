@@ -52,6 +52,10 @@ wsServer.on("request",request => {
                 clientMap.delete(clientId);
                 tempClientConnection?.close();
             });
+        }else{
+            const tempClientConnection = clientMap.get(clientId);
+                clientMap.delete(clientId);
+                tempClientConnection?.close();
         }
     })
 

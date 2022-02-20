@@ -56,11 +56,19 @@ ws.onmessage = message => {
             enterChoice();
         }
         console.log("Available Game Ids are :\n--------------------------\n");
+        let gameIndex:Number = 1;
         availableGames.forEach(gameId => {
-            console.log(gameId,"\n");
+            console.log(gameIndex,gameId,"\n");
         });
-        rl.question("Enter game Id you want to join : \n-------------------------------\n",(id)=>{
-            joinAsPlayer(id);
+        rl.question("Enter game index associated with game Id you want to join as spectator : \n",(index)=>{
+
+            const indexOfId = parseInt(index)-1;
+
+            if(indexOfId<0 || indexOfId >= availableGames.length){
+                console.log("Invalid Choice");
+                enterChoice();
+            }
+            joinAsPlayer(availableGames[parseInt(index)-1].toString());
         })
     }
 
@@ -122,12 +130,20 @@ ws.onmessage = message => {
             enterChoice();
         }
         console.log("Available Game Ids are :\n-------------------------\n");
+        let gameIndex = 1;
         availableGames.forEach(gameId => {
-            console.log(gameId);
+            console.log(gameIndex++,". ",gameId);
             console.log();
         });
-        rl.question("Enter game Id you want to join as spectator : \n",(id)=>{
-            joinAsSpectator(id);
+        rl.question("Enter game index associated with game Id you want to join as spectator : \n",(index)=>{
+
+            const indexOfId = parseInt(index)-1;
+
+            if(indexOfId<0 || indexOfId >= availableGames.length){
+                console.log("Invalid Choice");
+                enterChoice();
+            }
+            joinAsSpectator(availableGames[parseInt(index)-1].toString());
         })
     }
 
@@ -261,7 +277,11 @@ function renderState(state:Number[][]){
             if(state[i][j] == -1){
                 process.stdout.write(" ");
             }else{
-                process.stdout.write(state[i][j].toString());
+                if(state[i][j] == 1){
+                    process.stdout.write("X");
+                }else{
+                    process.stdout.write("O");
+                }
             }
             if(j != 2){
                 process.stdout.write("|");
@@ -273,6 +293,12 @@ function renderState(state:Number[][]){
         }
     }
     console.log();
+}
+
+function renderState2(){
+    for(let i = 0;i < 3;i++){
+        
+    }
 }
 
 function drawReferences(){
