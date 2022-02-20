@@ -21,7 +21,7 @@ let  ws = new WebSocket("ws://localhost:9090");
 connect();
 
 ws.close = event=>{
-    console.log("Server has closed the connection");
+    console.log("Server has closed the connection as some player might have disconnect upruptly...");
 }
 
 ws.onmessage = message => {
@@ -59,7 +59,7 @@ ws.onmessage = message => {
         availableGames.forEach(gameId => {
             console.log(gameId,"\n");
         });
-        rl.question("\n\nEnter game Id you want to join : \n-------------------------------\n",(id)=>{
+        rl.question("Enter game Id you want to join : \n-------------------------------\n",(id)=>{
             joinAsPlayer(id);
         })
     }
@@ -124,6 +124,7 @@ ws.onmessage = message => {
         console.log("Available Game Ids are :\n-------------------------\n");
         availableGames.forEach(gameId => {
             console.log(gameId);
+            console.log();
         });
         rl.question("Enter game Id you want to join as spectator : \n",(id)=>{
             joinAsSpectator(id);
@@ -215,7 +216,7 @@ function startGame(){
 
 function makeMove(){
     if(playerNumber === currentPlayer){
-        rl.question("\nPlease select an empty slot : ",(pos)=>{
+        rl.question("\nPlease select an empty slot : \n",(pos)=>{
             
             const payload = {
                 Method : "makeMove",

@@ -34,6 +34,25 @@ wsServer.on("request",request => {
 
     connection.on("close",(mssg)=>{
         console.log("Someone has closed connection");
+        let clientId:String = "none";
+
+        for(let [key,value] of clientMap.entries()){
+            if(value == connection){
+                clientId = key;
+                break;
+            }
+        }
+        const gameId = gamePlayedByClient(clientId);
+
+        if(gameId){
+            let gameState:IGamesState = gameMap.get(gameId)!;
+            gameMap.delete(gameId);
+            gameState.playerIds.concat(gameState.spectatorIds).forEach(clientId => {
+                const tempClientConnection = clientMap.get(clientId);
+                clientMap.delete(clientId);
+                tempClientConnection?.close();
+            });
+        }
     })
 
     connection.on("message",async message =>{
@@ -120,7 +139,7 @@ wsServer.on("request",request => {
             const selectedGameId = result.GameId;
             let gameState:IGamesState = gameMap.get(selectedGameId)!;
 
-            if(gameState.playerIds.length>1){
+            if(!gameState || gameState.playerIds.length>1){
                 const payload = {
                     Method:"joinAsPlayer",
                     Message : "NoSlots"
@@ -388,4 +407,21 @@ function generateGameUUID() {
         }
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
+}
+
+function gamePlayedByClient(clientId:String){
+    let gameId:String = "none";
+
+    for(let [key,value] of gameMap.entries()){
+        if(value.playerIds.find(id => id===clientId) != undefined){
+            gameId = key;
+            break;
+        }
+    }
+
+    if(gameId == "none"){
+        return null;
+    }else{
+        return gameId;
+    }
 }
