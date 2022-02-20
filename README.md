@@ -7,9 +7,10 @@
 `npm install`<br>
 `tsc`<br>
 5. If you get message as `tsc is not recognized as an internal or external command` then you need to run `npm install -g typescript` test by running command `tsc --version`
-6. To run the server run 
+6. After running tsc you might get the following error `src/server.ts:63:43 - error TS2339: Property 'utf8Data' does not exist on type 'Message'.` Ignore this error and procede with step 7 and 8.
+7. To run the server run 
 `npm run srun`
-7. To run client run
+8. To run client run
 `npm run crun`.
 
 ### ENJOY!!!
